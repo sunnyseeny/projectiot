@@ -1,13 +1,12 @@
+#include <Wire.h>
 #include <IFTTTMaker.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include "LedControl.h"
 LedControl lc = LedControl(13, 14, 12, 1);
-#include "DHT.h"
-#define DHTPIN 2
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
-//------- Replace the following! ------
+#include "ClosedCube_HDC1080.h"
+ClosedCube_HDC1080 hdc1080;
+
 char ssid[] = "SunLuCiFer"; // your network SSID (name)
 char password[] = "0827704588"; // your network key
 #define KEY "c5FFIp-BgDeWnKEM8sUCsW"
@@ -15,12 +14,14 @@ WiFiClientSecure client;
 IFTTTMaker ifttt(KEY, client);
 
 unsigned long pretime = 0, lasttime = 0;
-void setup() {
-  Serial.begin(115200);
+
+void setup()
+{ Serial.begin(115200);
+
   lc.shutdown(0, false);
   lc.setIntensity(0, 8);
   lc.clearDisplay(0);
-  
+
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   delay(100);
@@ -37,44 +38,39 @@ void setup() {
   Serial.println("IP address: ");
   IPAddress ip = WiFi.localIP();
   Serial.println(ip);
-  dht.begin();
+
+  Serial.println("ClosedCube HDC1080 Arduino Test");
+  hdc1080.begin(0x40); // 14 bit Temperature and Humidity MeasurementResolutions
+
 }
-void loop() {
+void loop()
+{
   pretime = millis();
-  delay(2000);
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  float f = dht.readTemperature(true);
-  float hif = dht.computeHeatIndex(f, h);
-  float hic = dht.computeHeatIndex(t, h, false);
-  if (isnan(h) || isnan(t) || isnan(f)) {
-    Serial.println("Failed to read from DHT sensor!");
-    return;
-  }
-  int t2 = t * 10;
-  int h2 = h * 10;
-  lc.setDigit(0, 7, t2 / 100, false);
-  lc.setDigit(0, 6, (t2 % 100) / 10, true);
-  lc.setDigit(0, 5, t2 % 10, false);
+  Serial.print("Temp('C) = "); Serial.print(hdc1080.readTemperature());
+  Serial.print(", RH(%) = "); Serial.print(hdc1080.readHumidity());
+  Serial.println();
+  int t = hdc1080.readTemperature() * 100;
+  int h = hdc1080.readHumidity() * 100;
+  lc.setDigit(0, 7, t / 1000, false);
+  lc.setDigit(0, 6, (t / 100) % 10, true);
+  lc.setDigit(0, 5, (t % 100) / 10, false);
   lc.setDigit(0, 4, 12, false);
-  lc.setDigit(0, 3, h2 / 100, false);
-  lc.setDigit(0, 2, (h2 / 10) % 10, true);
-  lc.setDigit(0, 1, h2 % 10, false);
+  lc.setDigit(0, 3, h / 1000, false);
+  lc.setDigit(0, 2, (h / 100) % 10, true);
+  lc.setDigit(0, 1, (h % 100) / 10, false);
   lc.setRow(0, 0, B00010111);
 
-  Serial.print("Humidity: "); Serial.print(h);
-  Serial.println(" %, ");
-  Serial.print("\tTemperature: "); Serial.print(t);
-  Serial.println(" *C, ");
-  Serial.print("Time: ");
   Serial.println((pretime - lasttime)/1000.0);
-  if ((pretime - lasttime) >= 30000)
+  int ChkStatus;
+  if ((pretime - lasttime) >=40000)
   { lasttime = pretime;
     Serial.print("Temperature Save Tepperature..... ");
-    int ChkStatus = ifttt.triggerEvent("TempandHumid", String(h), String(t));
+    ChkStatus = ifttt.triggerEvent("HDC", String(h), String(t));
     if (ChkStatus == 1)
       Serial.println(" > Successfully sent");
     else
       Serial.println(" > Failed!");
   }
+
+  delay(2000);
 }
