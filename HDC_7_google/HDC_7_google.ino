@@ -4,16 +4,18 @@
 #include <WiFiClientSecure.h>
 #include "LedControl.h"
 LedControl lc = LedControl(13, 14, 12, 1);
+
 #include "ClosedCube_HDC1080.h"
 ClosedCube_HDC1080 hdc1080;
 
 char ssid[] = "SunLuCiFer"; // your network SSID (name)
 char password[] = "0827704588"; // your network key
 #define KEY "c5FFIp-BgDeWnKEM8sUCsW"
+
 WiFiClientSecure client;
 IFTTTMaker ifttt(KEY, client);
 
-unsigned long pretime = 0, lasttime = 0;
+unsigned long int lasttime = 0;
 
 void setup()
 { Serial.begin(115200);
@@ -43,14 +45,16 @@ void setup()
   hdc1080.begin(0x40); // 14 bit Temperature and Humidity MeasurementResolutions
 
 }
+
 void loop()
-{
-  pretime = millis();
+{ unsigned long int pretime = millis();
   Serial.print("Temp('C) = "); Serial.print(hdc1080.readTemperature());
   Serial.print(", RH(%) = "); Serial.print(hdc1080.readHumidity());
   Serial.println();
-  int t = hdc1080.readTemperature() * 100;
-  int h = hdc1080.readHumidity() * 100;
+  float temp = hdc1080.readTemperature();
+  float humid = hdc1080.readHumidity();
+  int t = temp * 100;
+  int h = humid * 100;
   lc.setDigit(0, 7, t / 1000, false);
   lc.setDigit(0, 6, (t / 100) % 10, true);
   lc.setDigit(0, 5, (t % 100) / 10, false);
@@ -60,17 +64,15 @@ void loop()
   lc.setDigit(0, 1, (h % 100) / 10, false);
   lc.setRow(0, 0, B00010111);
 
-  Serial.println((pretime - lasttime)/1000.0);
-  int ChkStatus;
-  if ((pretime - lasttime) >=40000)
+  Serial.println((pretime - lasttime) / 1000.0);
+
+  if ((pretime - lasttime) >= 40000)
   { lasttime = pretime;
     Serial.print("Temperature Save Tepperature..... ");
-    ChkStatus = ifttt.triggerEvent("HDC", String(h), String(t));
-    if (ChkStatus == 1)
+    if(ifttt.triggerEvent("HDC",String(humid), String(temp)))
       Serial.println(" > Successfully sent");
     else
       Serial.println(" > Failed!");
   }
-
   delay(2000);
 }
